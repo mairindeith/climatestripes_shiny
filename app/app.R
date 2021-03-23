@@ -4,22 +4,23 @@ library(shiny)
 library(climatestripes)
 library(colourpicker)
 
-
 # UI ----------------------------------------------------------------------
 ui <- fluidPage(
-    titlePanel("TESA Carbon - Carbon footprint estimator for meetings and courses"),
+    titlePanel("Climate stripes - color gradients of temperature change"),
     sidebarLayout(
         sidebarPanel(
+            shinyjs::useShinyjs(),
             helpText("You can either use a default dataset or upload a .csv file."),
             selectInput("defaultData", label="Select a default dataset", choices = c("Use custom data"="none", "Hadley CRUT4 SST"="sst", "St Margaret’s Bay, NS, Canada"="stmargaretsbay")),
             fileInput("uploadedCSV", "Choose a CSV file for upload (maximum 5MB)", multiple = FALSE, accept = c("test/csv", "text/comma-separated-values", "text/plain", ".csv")),
             uiOutput("upload.timevector"),
             uiOutput("upload.temperature.vector"),
+            uiOutput("upload.month.vector"),
             uiOutput("upload.nan"),
             numericInput("num.colors", "If you want to use a custom color scheme, please specify how many colours you would like in the spectrum (leave at 0 for default colours)", min=0, max=10, step=1, value=0),
             checkboxInput("trendline", "Superimpose the data and a trend line?"),
             textInput("title", "Plot title"),
-            # checkboxInput("months", "Divide annual data into months?"),
+            checkboxInput("months", "Divide annual data into months?"),
             actionButton("createplot", "Create climate stripe plot")
         ),
         mainPanel(
@@ -30,30 +31,50 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session){
+    uploadedFile <<- FALSE
     # dataset selection
     dataset <<- reactive({
-        if(input$defaultData != "none"){
+        if(input$defaultData != "none" && input$defaultData != ""){
             get(input$defaultData)
         } else {
             read.csv(input$uploadedCSV$datapath, header=TRUE,sep=",")
         }
     })
 
-    data.cols <<- colnames(dataset)
     observeEvent(input$defaultData, {
-        if(input$defaultData == "none"){
+        if(input$defaultData == "sst"){
+            shinyjs::disable("months")
+        } else {
+            shinyjs::enable("months")
+        }
+    })
+
+    observeEvent(input$months, {
+        if(input$months==TRUE){
+            shinyjs::disable("trendline")
+        } else {
+            shinyjs::enable("trendline")
+        }
+    })
+
+    observeEvent(input$uploadedCSV, {
+        if(input$defaultData == "none" && !is.null(input$uploadedCSV)){
             output$upload.timevector <- renderUI({
-                selectInput("timevector", label="Select column containing time data", choices=data.cols)
+                selectInput("timevector", label="Select column containing time data", choices=colnames(dataset()))
             })
             output$upload.temperature.vector <- renderUI({
-                selectInput("tempvector", label="Select column containing temperature data", choices=data.cols)
+                selectInput("tempvector", label="Select column containing temperature data", choices=colnames(dataset()))
+            })
+            output$upload.month.vector <- renderUI({
+                selectInput("monthvector", label="Select column containing months", choices=colnames(dataset()))
             })
             output$upload.nan <- renderUI({
-                textInput("nan", label="What value indicates 'nan' or missing data? Leave blank for no value.", value="Enter NAN value")
+                textInput("nan", label="What value indicates 'nan' or missing data? (Leave blank if there are no 'NAN' characters in the data)")
             })
         } else {
             output$upload.timevector <- renderUI({})
             output$upload.temperature.vector <- renderUI({})
+            output$upload.month.vector <- renderUI({})
             output$upload.nan <- renderUI({})
         }
     })
@@ -61,12 +82,14 @@ server <- function(input, output, session){
     observeEvent(input$num.colors, {
         if(input$num.colors > 0){
             output$custom.colors <- renderUI({
-                lapply(1:input$num.colors, function(val) {
-                    fluidRow(
-                        column(3, 
-                            colourInput(paste0("col_", val), paste0("Select color ", val), "black")
-                    ))
-                })
+                fluidRow(
+                    p("Color 1 will be used to represent minimum temperatures, the final colour will represent maximum temperatures"),
+                    lapply(1:input$num.colors, function(val) {
+                            column(3, 
+                                colourInput(paste0("col_", val), paste0("Select color ", val), "white")
+                        )
+                    })
+                )
             })
         } else {
             output$custom.colors <- renderUI({})
@@ -88,13 +111,16 @@ server <- function(input, output, session){
         }
         if(input$num.colors != 0){
             colour.vec <- vector(length=input$num.colors)
-            for(i in 1:length(input$num.colors)){
+            for(i in 1:input$num.colors){
                 colour.vec[i] <- eval(parse(text=paste0("input$col_",i)))
+                # print(length(colour.vec))
+                # print("New colour:")
+                # print(colour.vec[i])
             }
         } else {
             colour.vec <- c("navyblue", "lightblue", "red", "darkred")
         }
-        if(input$trendline==FALSE){
+        if(input$trendline==FALSE && input$months==FALSE){
             output$tempStripes <- renderPlot({
                 climate.col.stripes.f(
                     time.vector=time.vector, temperature.vector=temp.vector, colour.vec=colour.vec, 
@@ -103,7 +129,7 @@ server <- function(input, output, session){
                     text.col.legend="yellow"
                 )
             })
-        } else {
+        } else if(input$trendline==TRUE && input$months==FALSE){
             output$tempStripes <- renderPlot({
                 climate.col.stripes.f(
                     time.vector=time.vector, temperature.vector=temp.vector, colour.vec=colour.vec, 
@@ -113,6 +139,31 @@ server <- function(input, output, session){
                 )
                 superimpose.data.f(time.vector=time.vector, temperature.vector=temp.vector, data.colour="yellow", spline=T, spline.colour="white",lwd=4)
             })
+        } else if(input$months == TRUE){
+            if(input$defaultData=="stmargaretsbay"){
+                months <- c("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+                monthcols <- match(months, names(stmargaretsbay))
+                output$tempStripes <- renderPlot({
+                    par(mfcol=c(6,2),mar=c(.2,.1,.5,.1))
+                    for (i in monthcols){
+                      temperature.vector <- dataset()[,i]
+                      climate.col.stripes.f(time.vector= time.vector,temperature.vector, colour.vec=colour.vec,title=months[i-1], time.scale=F)
+                    }
+                })
+            } else {
+                months <- unique(dataset()[,input$monthvector])
+                output$tempStripes <- renderPlot({
+                    par(mfcol=c(6,2),mar=c(.2,.1,.5,.1))
+                    for (i in 1:length(months)){
+                        subdata <<- dataset()[which(dataset()[,input$monthvector]==months[i]),]
+                        print(subdata)
+                        temperature.vector <- subdata[,input$tempvector]
+                        temperature.vector[temperature.vector==input$nan] <- NA
+                        time.vector <- subdata[,input$timevector]
+                        climate.col.stripes.f(time.vector= time.vector, temperature.vector, colour.vec=colour.vec, title=months[i], time.scale=F)
+                    }
+                })
+            }
         }
     })
 }
