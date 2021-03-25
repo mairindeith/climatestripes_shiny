@@ -1,6 +1,6 @@
 # Load libraries ----------------------------------------------------------
 library(shiny)
-# library(shinyjs)
+library(shinyjs)
 library(climatestripes)
 library(colourpicker)
 
@@ -25,7 +25,8 @@ ui <- fluidPage(
         ),
         mainPanel(
             uiOutput("custom.colors"),
-            plotOutput("tempStripes")
+            plotOutput("tempStripes"),
+            plotOutput("tempLegend", width="15%", height="100px")
         )
     )
 )
@@ -83,10 +84,10 @@ server <- function(input, output, session){
         if(input$num.colors > 0){
             output$custom.colors <- renderUI({
                 fluidRow(
-                    p("Color 1 will be used to represent minimum temperatures, the final colour will represent maximum temperatures"),
+                    p(paste0("Color 1 represents the minimum temperature, the final colour (", input$num.colors, ") represents maximum temperature")),
                     lapply(1:input$num.colors, function(val) {
                             column(3, 
-                                colourInput(paste0("col_", val), paste0("Select color ", val), "white")
+                                colourInput(paste0("col_", val), paste0("Select color ", val)) #, "white")
                         )
                     })
                 )
@@ -110,7 +111,7 @@ server <- function(input, output, session){
             temp.vector[temp.vector==999.9] <- NA
         }
         if(input$num.colors != 0){
-            colour.vec <- vector(length=input$num.colors)
+            colour.vec <<- vector(length=input$num.colors)
             for(i in 1:input$num.colors){
                 colour.vec[i] <- eval(parse(text=paste0("input$col_",i)))
                 # print(length(colour.vec))
@@ -118,16 +119,22 @@ server <- function(input, output, session){
                 # print(colour.vec[i])
             }
         } else {
-            colour.vec <- c("navyblue", "lightblue", "red", "darkred")
+            colour.vec <<- c("navyblue", "lightblue", "red", "darkred")
         }
         if(input$trendline==FALSE && input$months==FALSE){
             output$tempStripes <- renderPlot({
                 climate.col.stripes.f(
                     time.vector=time.vector, temperature.vector=temp.vector, colour.vec=colour.vec, 
                     title=input$title, 
-                    legend=T,
+                    legend=F,
                     text.col.legend="yellow"
                 )
+            })
+            output$tempLegend <- renderPlot({
+                colour.gradient.legend.f(
+                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
+                    var.min.label=round(min(temp.vector,na.rm=T),1), var.max.label=round(max(temp.vector,na.rm=T),1),
+                    text.col.legend="yellow")
             })
         } else if(input$trendline==TRUE && input$months==FALSE){
             output$tempStripes <- renderPlot({
@@ -138,6 +145,13 @@ server <- function(input, output, session){
                     text.col.legend="yellow"
                 )
                 superimpose.data.f(time.vector=time.vector, temperature.vector=temp.vector, data.colour="yellow", spline=T, spline.colour="white",lwd=4)
+                
+            })
+            output$tempLegend <- renderPlot({
+                colour.gradient.legend.f(
+                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
+                    var.min.label=round(min(temp.vector,na.rm=T),1), var.max.label=round(max(temp.vector,na.rm=T),1),
+                    text.col.legend="yellow")
             })
         } else if(input$months == TRUE){
             if(input$defaultData=="stmargaretsbay"){
@@ -147,9 +161,16 @@ server <- function(input, output, session){
                     par(mfcol=c(6,2),mar=c(.2,.1,.5,.1))
                     for (i in monthcols){
                       temperature.vector <- dataset()[,i]
-                      climate.col.stripes.f(time.vector= time.vector,temperature.vector, colour.vec=colour.vec,title=months[i-1], time.scale=F)
+                      temperature.vector[temperature.vector==999.9] <- NA
+                      climate.col.stripes.f(time.vector= time.vector,temperature.vector, colour.vec=colour.vec,title=months[i-1], time.scale=F, legend=F)
                     }
                 })
+                output$tempLegend <- renderPlot({
+                colour.gradient.legend.f(
+                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
+                    var.min.label=round(min(temperature.vector,na.rm=T),1), var.max.label=round(max(temperature.vector,na.rm=T),1),
+                    text.col.legend="yellow")
+            })
             } else {
                 months <- unique(dataset()[,input$monthvector])
                 output$tempStripes <- renderPlot({
@@ -162,6 +183,12 @@ server <- function(input, output, session){
                         time.vector <- subdata[,input$timevector]
                         climate.col.stripes.f(time.vector= time.vector, temperature.vector, colour.vec=colour.vec, title=months[i], time.scale=F)
                     }
+                })
+                output$tempLegend <- renderPlot({
+                colour.gradient.legend.f(
+                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
+                    var.min.label=round(min(temperature.vector,na.rm=T),1), var.max.label=round(max(temperature.vector,na.rm=T),1),
+                    text.col.legend="yellow")
                 })
             }
         }
