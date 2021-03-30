@@ -26,7 +26,8 @@ ui <- fluidPage(
         mainPanel(
             uiOutput("custom.colors"),
             plotOutput("tempStripes"),
-            plotOutput("tempLegend", width="15%", height="100px")
+            p("Temperature legend"),
+            plotOutput("tempLegend", width="25%") #, height="100px")
         )
     )
 )
@@ -131,10 +132,13 @@ server <- function(input, output, session){
                 )
             })
             output$tempLegend <- renderPlot({
-                colour.gradient.legend.f(
-                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
-                    var.min.label=round(min(temp.vector,na.rm=T),1), var.max.label=round(max(temp.vector,na.rm=T),1),
-                    text.col.legend="yellow")
+                tempvec <- matrix(seq(from=round(min(temp.vector,na.rm=T),1), to=round(max(temp.vector, na.rm=T), 1), length.out=length(colour.vec))) # input$num.colors 
+                image(1, tempvec, t(seq_along(tempvec)), col=colour.vec, axes=FALSE, xlab="", ylab="")
+                axis(4)
+#                colour.gradient.legend.f(
+#                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
+#                    var.min.label=round(min(temp.vector,na.rm=T),1), var.max.label=round(max(temp.vector,na.rm=T),1),
+#                    text.col.legend="yellow")
             })
         } else if(input$trendline==TRUE && input$months==FALSE){
             output$tempStripes <- renderPlot({
@@ -148,10 +152,13 @@ server <- function(input, output, session){
                 
             })
             output$tempLegend <- renderPlot({
-                colour.gradient.legend.f(
-                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
-                    var.min.label=round(min(temp.vector,na.rm=T),1), var.max.label=round(max(temp.vector,na.rm=T),1),
-                    text.col.legend="yellow")
+                tempvec <- matrix(seq(from=round(min(temp.vector,na.rm=T),1), to=round(max(temp.vector, na.rm=T), 1), length.out=length(colour.vec))) # input$num.colors 
+                image(1, tempvec, t(seq_along(tempvec)), col=colour.vec, axes=FALSE, xlab="", ylab="")
+                axis(4)
+#                colour.gradient.legend.f(
+#                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
+#                    var.min.label=round(min(temp.vector,na.rm=T),1), var.max.label=round(max(temp.vector,na.rm=T),1),
+#                    text.col.legend="yellow")
             })
         } else if(input$months == TRUE){
             if(input$defaultData=="stmargaretsbay"){
@@ -166,10 +173,9 @@ server <- function(input, output, session){
                     }
                 })
                 output$tempLegend <- renderPlot({
-                colour.gradient.legend.f(
-                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
-                    var.min.label=round(min(temperature.vector,na.rm=T),1), var.max.label=round(max(temperature.vector,na.rm=T),1),
-                    text.col.legend="yellow")
+                    tempvec <- matrix(seq(from=round(min(temp.vector,na.rm=T),1), to=round(max(temp.vector, na.rm=T), 1), length.out=length(colour.vec))) # input$num.colors 
+                    image(1, tempvec, t(seq_along(tempvec)), col=colour.vec, axes=FALSE, xlab="", ylab="")
+                    axis(4)
             })
             } else {
                 months <- unique(dataset()[,input$monthvector])
@@ -185,10 +191,13 @@ server <- function(input, output, session){
                     }
                 })
                 output$tempLegend <- renderPlot({
-                colour.gradient.legend.f(
-                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
-                    var.min.label=round(min(temperature.vector,na.rm=T),1), var.max.label=round(max(temperature.vector,na.rm=T),1),
-                    text.col.legend="yellow")
+                    tempvec <- matrix(seq(from=round(min(temp.vector,na.rm=T),1), to=round(max(temp.vector, na.rm=T), 1), length.out=length(colour.vec))) # input$num.colors 
+                    image(1, tempvec, t(seq_along(tempvec)), col=colour.vec, axes=FALSE, xlab="", ylab="")
+                    axis(4)
+#                colour.gradient.legend.f(
+#                    xleft=0, ybottom=0, xright=1, ytop=3, colour.vec=colour.vec, ncolours=10, labels=T, 
+#                    var.min.label=round(min(temperature.vector,na.rm=T),1), var.max.label=round(max(temperature.vector,na.rm=T),1),
+#                    text.col.legend="yellow")
                 })
             }
         }
